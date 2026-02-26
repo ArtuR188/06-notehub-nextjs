@@ -1,11 +1,11 @@
-import axios, { type AxiosResponse } from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import type { Note, NoteTag } from "@/types/note";
 
 const api = axios.create({
   baseURL: "https://notehub-public.goit.study/api",
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = process.env.NEXT_PUBLIC_NOTEHUB_TOKEN;
 
   if (!token) {
@@ -35,32 +35,27 @@ export interface CreateNotePayload {
   tag: NoteTag;
 }
 
-export interface DeleteNoteResponse {
-  note: Note;
-}
-
-export const fetchNotes = async (
-  params: FetchNotesParams
-): Promise<FetchNotesResponse> => {
-  const response: AxiosResponse<FetchNotesResponse> = await api.get("/notes", {
-    params,
+export const fetchNotes = async ({
+  page,
+  perPage,
+  search = "",
+}: FetchNotesParams): Promise<FetchNotesResponse> => {
+  const { data } = await api.get<FetchNotesResponse>("/notes", {
+    params: { page, perPage, search },
   });
-  return response.data;
+  return data;
 };
 
 export const fetchNoteById = async (id: string): Promise<Note> => {
-  const response: AxiosResponse<Note> = await api.get(`/notes/${id}`);
-  return response.data;
+  const { data } = await api.get<Note>(`/notes/${id}`);
+  return data;
 };
 
 export const createNote = async (payload: CreateNotePayload): Promise<Note> => {
-  const response: AxiosResponse<Note> = await api.post("/notes", payload);
-  return response.data;
+  const { data } = await api.post<Note>("/notes", payload);
+  return data;
 };
 
-export const deleteNote = async (id: string): Promise<DeleteNoteResponse> => {
-  const response: AxiosResponse<DeleteNoteResponse> = await api.delete(
-    `/notes/${id}`
-  );
-  return response.data;
+export const deleteNote = async (id: string): Promise<void> => {
+  await api.delete(`/notes/${id}`);
 };

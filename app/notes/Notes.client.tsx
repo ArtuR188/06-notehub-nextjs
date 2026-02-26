@@ -1,36 +1,86 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import {
+  useQuery,
+  keepPreviousData,
+} from "@tanstack/react-query";
+import { useDebouncedCallback } from "use-debounce";
 
-import { fetchNotes } from "@/lib/api"; // або "@/lib/api/notes" якщо у тебе так
-// Якщо FetchNotesResponse не експортований — прибери цей імпорт, він не критичний
+import { fetchNotes } from "../../lib/api";
+import type { FetchNotesResponse } from "@/lib/api";
+
+import SearchBox from "@/components/SearchBox/SearchBox";
+import Pagination from "@/components/Pagination/Pagination";
+import Modal from "@/components/Modal/Modal";
+import NoteForm from "@/components/NoteForm/NoteForm";
+import NoteList from "@/components/NoteList/NoteList";
 
 export default function NotesClient() {
-  const [page] = useState(1);
+  const [page, setPage] = useState<number>(1);
+  const [search, setSearch] = useState<string>("");
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+
   const perPage = 12;
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["notes", page, ""],
-    queryFn: () => fetchNotes({ page, perPage, search: "" }),
+  const handleSearch = useDebouncedCallback((value: string) => {
+    setPage(1);
+    setSearch(value);
+  }, 500);
+
+  const { data, isLoading, isError } = useQuery<FetchNotesResponse>({
+    queryKey: ["notes", page, search],
+    queryFn: () =>
+      fetchNotes({
+        page,
+        perPage,
+        search,
+      }),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 30,
   });
 
-  if (isLoading) return <p>Loading, please wait...</p>;
-  if (error) return <p>Something went wrong.</p>;
-  if (!data || data.notes.length === 0) return <p>No notes found</p>;
+  if (isLoading && !data) {
+    return <p>Loading, please wait...</p>;
+  }
+
+  if (isError) {
+    return <p>Something went wrong.</p>;
+  }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1 style={{ color: "white" }}>Notes</h1>
+    <>
+      <header style={{ marginBottom: 24 }}>
+        <SearchBox onSearch={handleSearch} />
 
-      <ul style={{ color: "white" }}>
-        {data.notes.map((note) => (
-          <li key={note.id} style={{ marginBottom: 12 }}>
-            <b>{note.title}</b> — <span>{note.tag}</span>
-            <div>{note.content}</div>
-          </li>
-        ))}
-      </ul>
-    </div>
+        {data && data.totalPages > 1 && (
+          <Pagination
+            pageCount={data.totalPages}
+            currentPage={page}
+            onPageChange={setPage}
+          />
+        )}
+
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          style={{ marginTop: 16 }}
+        >
+          Create note +
+        </button>
+      </header>
+
+      {data && data.notes.length > 0 ? (
+        <NoteList notes={data.notes} />
+      ) : (
+        <p>No notes found</p>
+      )}
+
+      {isModalOpen && (
+        <Modal onClose={() => setIsModalOpen(false)}>
+          <NoteForm onCancel={() => setIsModalOpen(false)} />
+        </Modal>
+      )}
+    </>
   );
 }
